@@ -1,12 +1,13 @@
 package com.example.blog.controller
 
 import com.example.blog.dal.UserDAL
-import com.example.blog.model.LoginModel
-import com.example.blog.model.ResponseModel
-import com.example.blog.model.User
-import com.example.blog.utils.Utils
+import com.example.blog.payload.response.ResponseModel
+import com.example.blog.repository.UserRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.Sort
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 
@@ -14,90 +15,59 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping(value = ["/api/user"])
 class UserController(val userDAL: UserDAL) {
 
+    @Autowired
+    var userRepository: UserRepository? = null
+
     private val logger: Logger = LoggerFactory.getLogger(UserController::class.java)
 
-    @PostMapping(value = ["/register"])
-    fun addNewUsers(@RequestBody user: User?): ResponseModel? {
-        return if (userDAL.getUserByEmail(user!!.email) != null) {
-            ResponseModel(status = false, invalidResponse = false, message = "Email already registered")
-        } else {
-            ResponseModel(
-                status = true,
-                invalidResponse = false,
-                message = "Success",
-                response = userDAL.addNewUser(user)
-            )
-        }
-    }
-
-    @PostMapping(value = ["/login"])
-    fun login(@RequestBody loginModel: LoginModel?): ResponseModel? {
-        val user = userDAL.getUserByEmail(loginModel!!.email)
-        return if (user == null) {
-            ResponseModel(status = false, invalidResponse = false, message = "Email not registered")
-        } else {
-            logger.info("this is a info message");
-            print("-------")
-            if (Utils.md5(user.password!!) != Utils.md5(loginModel.password)) {
-                ResponseModel(false, invalidResponse = false, "Invalid password")
-            } else {
-                ResponseModel(
-                    status = true,
-                    invalidResponse = false,
-                    message = "Success",
-                    response = userDAL.login(loginModel)
-                )
-            }
-        }
-    }
-
-    @PostMapping("/users")
-    fun getUser(@RequestParam userId: String?, @RequestParam name: String?, @RequestBody user: User?): ResponseModel? {
+    @GetMapping("/users")
+    fun getUser(@RequestParam userId: String?, @RequestParam name: String?): ResponseEntity<*> {
         return when {
-            userDAL.validateSession(user?.session) == null -> {
-                ResponseModel(status = false, invalidResponse = true, message = "Invalid session")
-            }
             userId.isNullOrBlank() && name.isNullOrBlank() -> {
-                ResponseModel(
-                    status = true,
-                    invalidResponse = false,
-                    message = "Success",
-                    response = userDAL.getAllUsers()
+                ResponseEntity.ok(
+                    ResponseModel(
+                        status = 200,
+                        message = "Success",
+                        response = userRepository!!.findAll(Sort.by(Sort.Direction.DESC, "updateDate"))
+                    )
                 )
             }
             userId != null && userId.isNotEmpty() && userDAL.getUserById(userId) != null -> {
-                ResponseModel(
-                    status = true,
-                    invalidResponse = false,
-                    message = "Success",
-                    response = userDAL.getUserById(userId)!!
+                ResponseEntity.ok(
+                    ResponseModel(
+                        status = 200,
+                        message = "Success",
+                        response = userRepository!!.findById(userId)
+                    )
                 )
             }
             name != null && name.isNotEmpty() -> {
-                ResponseModel(
-                    status = true,
-                    invalidResponse = false,
-                    message = "Success",
-                    response = userDAL.getUserByName(name)!!
+                ResponseEntity.ok(
+                    ResponseModel(
+                        status = 200,
+                        message = "Success",
+                        response = userDAL.getUserByName(name)!!
+                    )
                 )
             }
             else -> {
-                ResponseModel(status = false, invalidResponse = false, message = "No User Found")
+                ResponseEntity.ok(ResponseModel(status = 200, message = "No User Found"))
             }
         }
     }
 
     @GetMapping("/delete/{userId}")
-    fun deleteUser(@PathVariable userId: String?): ResponseModel? {
+    fun deleteUser(@PathVariable userId: String?): ResponseEntity<*> {
         return if (userId != null && userId.isNotEmpty() && userDAL.getUserById(userId) != null) {
-            return ResponseModel(
-                status = true,
-                invalidResponse = false,
-                message = "Success",
-                userDAL.deleteUser(userId)
+            return ResponseEntity.ok(
+                ResponseModel(
+                    status = 200,
+                    message = "Success",
+                    userDAL.deleteUser(userId)
+                )
             )
         } else {
-            ResponseModel(status = false, invalidResponse = false, message = "Invalid user Id")
+            ResponseEntity.ok(ResponseModel(status = 200, message = "Invalid user Id"))
         }
     }
 
